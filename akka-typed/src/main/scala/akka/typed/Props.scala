@@ -15,10 +15,11 @@ case class DispatcherFromExecutionContext(ec: ExecutionContext) extends Dispatch
 /**
  * Props describe how to dress up a [[Behavior]] so that it can become an Actor.
  */
-final case class Props[T](creator: () ⇒ Behavior[T], dispatcher: DispatcherSelector) {
+final case class Props[T](creator: () ⇒ Behavior[T], dispatcher: DispatcherSelector, queueSize: Int) {
   def withDispatcher(configPath: String) = copy(dispatcher = DispatcherFromConfig(configPath))
   def withDispatcher(executor: Executor) = copy(dispatcher = DispatcherFromExecutor(executor))
   def withDispatcher(ec: ExecutionContext) = copy(dispatcher = DispatcherFromExecutionContext(ec))
+  def withQueueSize(size: Int) = copy(queueSize = size)
 }
 
 /**
@@ -31,7 +32,7 @@ object Props {
    * FIXME: investigate the pros and cons of making this take an explicit
    *        function instead of a by-name argument
    */
-  def apply[T](block: ⇒ Behavior[T]): Props[T] = Props(() ⇒ block, DispatcherDefault)
+  def apply[T](block: ⇒ Behavior[T]): Props[T] = Props(() ⇒ block, DispatcherDefault, Int.MaxValue)
 
   /**
    * Props for a Behavior that just ignores all messages.

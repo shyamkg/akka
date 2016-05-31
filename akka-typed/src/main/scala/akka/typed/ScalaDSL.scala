@@ -44,7 +44,7 @@ object ScalaDSL {
     private def postProcess(ctx: ActorContext[U], behv: Behavior[T]): Behavior[U] =
       if (isUnhandled(behv)) Unhandled
       else if (isAlive(behv)) {
-        val next = canonicalize(ctx.asInstanceOf[ActorContext[T]], behv, behavior)
+        val next = canonicalize(behv, behavior)
         if (next eq behavior) Same else Widened(next, matcher)
       } else Stopped
 
@@ -257,7 +257,7 @@ object ScalaDSL {
     private var _behavior = f(inbox.ref)
     private def behavior = _behavior
     private def setBehavior(ctx: ActorContext[T], b: Behavior[T]): Unit =
-      _behavior = canonicalize(ctx, b, _behavior)
+      _behavior = canonicalize(b, _behavior)
 
     // FIXME should we protect against infinite loops?
     @tailrec private def run(ctx: ActorContext[T], next: Behavior[T]): Behavior[T] = {
@@ -290,8 +290,8 @@ object ScalaDSL {
       val r = right.management(ctx, msg)
       if (isUnhandled(l) && isUnhandled(r)) Unhandled
       else {
-        val nextLeft = canonicalize(ctx, l, left)
-        val nextRight = canonicalize(ctx, r, right)
+        val nextLeft = canonicalize(l, left)
+        val nextRight = canonicalize(r, right)
         val leftAlive = isAlive(nextLeft)
         val rightAlive = isAlive(nextRight)
 
@@ -307,8 +307,8 @@ object ScalaDSL {
       val r = right.message(ctx, msg)
       if (isUnhandled(l) && isUnhandled(r)) Unhandled
       else {
-        val nextLeft = canonicalize(ctx, l, left)
-        val nextRight = canonicalize(ctx, r, right)
+        val nextLeft = canonicalize(l, left)
+        val nextRight = canonicalize(r, right)
         val leftAlive = isAlive(nextLeft)
         val rightAlive = isAlive(nextRight)
 
@@ -337,11 +337,11 @@ object ScalaDSL {
           val r = right.management(ctx, msg)
           if (isUnhandled(r)) Unhandled
           else {
-            val nr = canonicalize(ctx, r, right)
+            val nr = canonicalize(r, right)
             if (isAlive(nr)) Or(left, nr) else left
           }
         case nl ⇒
-          val next = canonicalize(ctx, nl, left)
+          val next = canonicalize(nl, left)
           if (isAlive(next)) Or(next, right) else right
       }
 
@@ -351,11 +351,11 @@ object ScalaDSL {
           val r = right.message(ctx, msg)
           if (isUnhandled(r)) Unhandled
           else {
-            val nr = canonicalize(ctx, r, right)
+            val nr = canonicalize(r, right)
             if (isAlive(nr)) Or(left, nr) else left
           }
         case nl ⇒
-          val next = canonicalize(ctx, nl, left)
+          val next = canonicalize(nl, left)
           if (isAlive(next)) Or(next, right) else right
       }
   }
@@ -394,10 +394,10 @@ object ScalaDSL {
     FullTotal {
       case Sig(ctx, signal) ⇒
         val behv = behavior(ctx.self)
-        canonicalize(ctx, behv.management(ctx, signal), behv)
+        canonicalize(behv.management(ctx, signal), behv)
       case Msg(ctx, msg) ⇒
         val behv = behavior(ctx.self)
-        canonicalize(ctx, behv.message(ctx, msg), behv)
+        canonicalize(behv.message(ctx, msg), behv)
     }
 
   /**
@@ -418,10 +418,10 @@ object ScalaDSL {
     FullTotal {
       case Sig(ctx, signal) ⇒
         val behv = behavior(ctx)
-        canonicalize(ctx, behv.management(ctx, signal), behv)
+        canonicalize(behv.management(ctx, signal), behv)
       case Msg(ctx, msg) ⇒
         val behv = behavior(ctx)
-        canonicalize(ctx, behv.message(ctx, msg), behv)
+        canonicalize(behv.message(ctx, msg), behv)
     }
 
   /**

@@ -137,7 +137,7 @@ private[typed] class ActorSystemImpl[T](override val name: String,
   override def terminate(): Future[Terminated] = ???
   override def whenTerminated: Future[Terminated] = ???
 
-  override def deadLetters[U]: ActorRef[U] = ???
+  override def deadLetters[U]: ActorRefImpl[U] = ???
 
   override def tell(msg: T): Unit = ???
 
