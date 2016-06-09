@@ -162,10 +162,10 @@ object MaxThroughputSpec extends MultiNodeConfig {
   }
 
   final case class TestSettings(
-    testName:            String,
-    totalMessages:       Long,
-    burstSize:           Int,
-    payloadSize:         Int,
+    testName: String,
+    totalMessages: Long,
+    burstSize: Int,
+    payloadSize: Int,
     senderReceiverPairs: Int)
 
   class TestSerializer(val system: ExtendedActorSystem) extends SerializerWithStringManifest with ByteBufferSerializer {
@@ -243,7 +243,7 @@ abstract class MaxThroughputSpec
       senderReceiverPairs = 1),
     TestSettings(
       testName = "1-to-1",
-      totalMessages = adjustedTotalMessages(20000),
+      totalMessages = adjustedTotalMessages(100000),
       burstSize = 1000,
       payloadSize = 100,
       senderReceiverPairs = 1),
