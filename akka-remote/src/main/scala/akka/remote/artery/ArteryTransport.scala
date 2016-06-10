@@ -8,16 +8,13 @@ import java.net.InetSocketAddress
 import java.nio.channels.DatagramChannel
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
-
 import scala.collection.JavaConverters._
-
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import akka.Done
 import akka.NotUsed
 import akka.actor.ActorRef
@@ -67,17 +64,17 @@ import org.agrona.IoUtil
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.channels.{ DatagramChannel, FileChannel }
-
 import akka.remote.artery.OutboundControlJunction.OutboundControlIngress
 import io.aeron.CncFileDescriptor
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.actor.Cancellable
-
 import scala.collection.JavaConverters._
 import akka.stream.ActorMaterializerSettings
 import scala.annotation.tailrec
 import akka.util.OptionVal
+import io.aeron.driver.ThreadingMode
+import org.agrona.concurrent.BackoffIdleStrategy
+import org.agrona.concurrent.BusySpinIdleStrategy
 
 /**
  * INTERNAL API
@@ -377,7 +374,7 @@ private[remote] class ArteryTransport(_system: ExtendedActorSystem, _provider: R
   private val controlStreamId = 1
   private val ordinaryStreamId = 3
   private val largeStreamId = 4
-  private val taskRunner = new TaskRunner(system)
+  private val taskRunner = new TaskRunner(system, remoteSettings.IdleCpuLevel)
 
   private val restartTimeout: FiniteDuration = 5.seconds // FIXME config
   private val maxRestarts = 5 // FIXME config
@@ -446,9 +443,27 @@ private[remote] class ArteryTransport(_system: ExtendedActorSystem, _provider: R
       if (remoteSettings.AeronDirectoryName.nonEmpty)
         driverContext.aeronDirectoryName(remoteSettings.AeronDirectoryName)
       // FIXME settings from config
+      driverContext.conductorIdleStrategy()
       driverContext.clientLivenessTimeoutNs(SECONDS.toNanos(20))
       driverContext.imageLivenessTimeoutNs(SECONDS.toNanos(20))
       driverContext.driverTimeoutMs(SECONDS.toNanos(20))
+
+      if (remoteSettings.IdleCpuLevel == 10) {
+        driverContext
+          .threadingMode(ThreadingMode.DEDICATED)
+          .conductorIdleStrategy(new BackoffIdleStrategy(1, 1, 1, 1))
+          .receiverIdleStrategy(new BusySpinIdleStrategy)
+          .senderIdleStrategy(new BusySpinIdleStrategy);
+      } else if (remoteSettings.IdleCpuLevel == 1) {
+        driverContext
+          .threadingMode(ThreadingMode.SHARED)
+        //FIXME measure: .sharedIdleStrategy(new BackoffIdleStrategy(20, 50, 1, 200))
+      } else if (remoteSettings.IdleCpuLevel <= 5) {
+        driverContext
+          .threadingMode(ThreadingMode.SHARED_NETWORK)
+        //FIXME measure: .sharedNetworkIdleStrategy(new BackoffIdleStrategy(20, 50, 1, 20 * (11 - remoteSettings.IdleCpuLevel)))
+      }
+
       val driver = MediaDriver.launchEmbedded(driverContext)
       log.debug("Started embedded media driver in directory [{}]", driver.aeronDirectoryName)
       topLevelFREvents.loFreq(Transport_MediaDriverStarted, driver.aeronDirectoryName().getBytes("US-ASCII"))
